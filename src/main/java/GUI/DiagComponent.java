@@ -147,3 +147,4 @@ public class DiagComponent extends JComponent {
         });
     }
 }
+//check ssh?
