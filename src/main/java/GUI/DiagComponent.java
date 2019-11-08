@@ -15,7 +15,7 @@ import java.awt.event.ActionListener;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 
-public class DiagComponent extends JComponent {
+public class DiagComponent extends JPanel {
     JPanel dataInputPanel = new JPanel(new GridLayout(0, 2, 0, 5));
     JPanel buttonPanel = new JPanel(new GridLayout(2, 1, 0, 5));
     JPanel chartPanel = new JPanel();
@@ -30,11 +30,11 @@ public class DiagComponent extends JComponent {
             tf.setText("0");
             textFields.add(tf);
         }
-        dataInputPanel.add(new JLabel("col1"));
+        dataInputPanel.add(new JLabel("col0"));
         dataInputPanel.add(textFields.get(0));
-        dataInputPanel.add(new JLabel("col2"));
+        dataInputPanel.add(new JLabel("col1"));
         dataInputPanel.add(textFields.get(1));
-        dataInputPanel.add(new JLabel("col3"));
+        dataInputPanel.add(new JLabel("col2"));
         dataInputPanel.add(textFields.get(2));
         dataInputPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
 
@@ -60,21 +60,35 @@ public class DiagComponent extends JComponent {
         chart.setBackgroundPaint(Color.WHITE);
         CategoryPlot plot = (CategoryPlot) chart.getPlot();
         NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
-        rangeAxis.setRange(0, 10);
+        //rangeAxis.setRange(0, 10);
         chartPanel.add(new ChartPanel(chart));
         final ArrayList<BigDecimal> prevData = new ArrayList<BigDecimal>();
         final ArrayList<BigDecimal> currData = new ArrayList<BigDecimal>();
+        final ArrayList<BigDecimal> deltData = new ArrayList<BigDecimal>();
 
         update.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 prevData.clear();
                 currData.clear();
+                boolean right_input = true;
                 for (Integer i = 0; i < dataInputPanel.getComponentCount()/2; i++) {
-                    prevData.add(BigDecimal.valueOf(dataset.getValue("str", i.toString()).doubleValue()));
-                    currData.add(BigDecimal.valueOf(Double.parseDouble(textFields.get(i).getText())));
+                    try {
+                        prevData.add(BigDecimal.valueOf(dataset.getValue("str", i.toString()).doubleValue()));
+                        currData.add(BigDecimal.valueOf(Double.parseDouble(textFields.get(i).getText())));
+                        deltData.add((currData.get(i).add(prevData.get(i).negate())).abs().divide(BigDecimal.valueOf(80)));
+                    } catch (NumberFormatException ex){
+                        System.out.println("были введены неправильные данные в "+ i + " поле" );
+                        prevData.clear();
+                        currData.clear();
+                        deltData.clear();
+                        right_input = false;
+                    }
                 }
-                timer.start();
+                if (right_input) {
+                    timer.start();
+                }
+
             }
         });
 
@@ -83,7 +97,7 @@ public class DiagComponent extends JComponent {
             public void actionPerformed(ActionEvent e) {
                 String s =Integer.toString(dataInputPanel.getComponentCount()/2);
                 String st = (Integer.toString(dataInputPanel.getComponentCount()/2 + 1));
-                dataInputPanel.add(new JLabel("col" + st));
+                dataInputPanel.add(new JLabel("col" + s));
                 JTextField tf = new JTextField();
                 tf.setText("0");
                 textFields.add(new JTextField("0"));
@@ -92,30 +106,29 @@ public class DiagComponent extends JComponent {
                 dataset.addValue(0, "str", s);
                 prevData.clear();
                 currData.clear();
+                deltData.clear();
                 for (Integer i = 0; i < dataInputPanel.getComponentCount()/2; i++) {
                     prevData.add(BigDecimal.valueOf(dataset.getValue("str", i.toString()).doubleValue()));
                     currData.add(BigDecimal.valueOf(Double.parseDouble(textFields.get(i).getText())));
+                    deltData.add((currData.get(i).add(prevData.get(i).negate())).abs().divide(BigDecimal.valueOf(80)));
                 }
             }
         });
 
 
-        timer = new Timer(100, new ActionListener() {
-            BigDecimal delta = new BigDecimal("0.1");
-
+        timer = new Timer(10, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 for (Integer i = 0; i < dataInputPanel.getComponentCount()/2; i++) {
-
                     if (prevData.get(i).compareTo(currData.get(i)) < 0){
-                        dataset.setValue((prevData.get(i)).add(delta), "str", i.toString());
+                        dataset.setValue((prevData.get(i)).add(deltData.get(i)), "str", i.toString());
                     }
                     if(prevData.get(i).compareTo(currData.get(i))>0){
-                        dataset.setValue((prevData.get(i)).add(delta.negate()), "str", i.toString());
+                        dataset.setValue((prevData.get(i)).add(deltData.get(i).negate()), "str", i.toString());
                     }
                     prevData.set(i, BigDecimal.valueOf(dataset.getValue("str", i.toString()).doubleValue()));
                     try {
-                        Thread.sleep(1);
+                        Thread.sleep(0);
                     } catch (InterruptedException ex) {
                         ex.printStackTrace();
                     }
@@ -123,10 +136,15 @@ public class DiagComponent extends JComponent {
                 if(prevData.equals(currData)){
                     prevData.clear();
                     currData.clear();
+                    deltData.clear();
                     ((Timer)e.getSource()).stop();
                 }
             }
         });
+
+        this.add(dataInputPanel);
+        this.add(buttonPanel);
+        this.add(chartPanel);
     }
 
     public static void main(String[] args) {
@@ -138,10 +156,12 @@ public class DiagComponent extends JComponent {
                 frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 DiagComponent diagComponent = new DiagComponent();
                 JPanel panel = new JPanel();
-                panel.add(diagComponent.dataInputPanel);
-                panel.add(diagComponent.buttonPanel);
-                panel.add(diagComponent.chartPanel);
+                panel.add(diagComponent);
+//                panel.add(diagComponent.dataInputPanel);
+//                panel.add(diagComponent.buttonPanel);
+//                panel.add(diagComponent.chartPanel);
                 frame.getContentPane().add(panel);
+                frame.pack();
                 frame.setVisible(true);
             }
         });
